@@ -9,8 +9,7 @@ env:
   GKE_CLUSTER: dwk-cluster
   GKE_ZONE: europe-north1-b
   IMAGE: dwk-environments
-  SERVICE: dwk-environments
-  BRANCH: ${{ github.ref_name }}
+  DEPLOYMENT: dwk-environments
 
 jobs:
   build-publish-deploy:
@@ -42,17 +41,20 @@ jobs:
           location: "${{ env.GKE_ZONE }}"
 
       - name: Build
-        run: docker build --tag "gcr.io/$PROJECT_ID/$IMAGE:$BRANCH-$GITHUB_SHA" .
+        run: docker build --tag "gcr.io/$PROJECT_ID/$IMAGE:${GITHUB_REF#refs/heads}-$GITHUB_SHA" .
 
       - name: Publish
-        run: docker push "gcr.io/$PROJECT_ID/$IMAGE:$BRANCH-$GITHUB_SHA"
+        run: docker push "gcr.io/$PROJECT_ID/$IMAGE:${GITHUB_REF#refs/heads}-$GITHUB_SHA"
 
       - name: Set up Kustomize
         uses: imranismail/setup-kustomize@v2.1.0
 
       - name: Deploy
         run: |-
-          kustomize edit set image PROJECT/IMAGE=gcr.io/$PROJECT_ID/$IMAGE:$BRANCH-$GITHUB_SHA
+          kubectl create namespace ${GITHUB_REF#refs/heads} || true
+          kubectl config set-context --current --namespace=${GITHUB_REF#refs/heads}
+          kustomize edit set namespace ${GITHUB_REF#refs/heads}
+          kustomize edit set image PROJECT/IMAGE=gcr.io/$PROJECT_ID/$IMAGE:${GITHUB_REF#refs/heads}-$GITHUB_SHA
           kustomize build . | kubectl apply -f -
-          kubectl rollout status deployment $SERVICE
+          kubectl rollout status deployment $DEPLOYMENT
           kubectl get services -o wide
