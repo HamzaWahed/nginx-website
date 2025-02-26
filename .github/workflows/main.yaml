@@ -28,7 +28,7 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: "Use gcloud CLI"
-        runs: gcloud info
+        run: gcloud info
 
       - run: gcloud --quiet auth configure-docker
 
